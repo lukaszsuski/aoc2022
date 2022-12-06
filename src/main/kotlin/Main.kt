@@ -1,8 +1,19 @@
+import java.time.LocalDate
+import java.time.LocalDate.now
+
+const val SOLVE_ALL = "--all"
+
 fun main(args: Array<String>) {
-    Day1().solve()
-    Day2().solve()
-    Day3().solve()
-    Day4().solve()
-    Day5().solve()
-    Day6().solve()
+
+    val today = now()
+    val xMas = LocalDate.of(2022, 12, 26)
+
+    val solveTillDay = if (today.isBefore(xMas)) today.dayOfMonth else 26
+
+    if (today.isAfter(xMas) or args.contains(SOLVE_ALL)) {
+        (1..solveTillDay).forEach { Day.trySolve(it) }
+    } else {
+        Day.trySolve(today.dayOfMonth)
+    }
+
 }

@@ -10,4 +10,13 @@ abstract class Day(private val nr: Int) {
     }
 
     abstract fun solve(input: List<String>)
+
+    companion object {
+        fun trySolve(dayNr: Int) {
+            val day = Class.forName("Day${dayNr}")
+                .getConstructor()
+                .newInstance() as Day
+            day.solve()
+        }
+    }
 }
