@@ -4,4 +4,5 @@ fun main(args: Array<String>) {
     Day3().solve()
     Day4().solve()
     Day5().solve()
+    Day6().solve()
 }
