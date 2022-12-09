@@ -3,7 +3,7 @@ abstract class Day(private val nr: Int) {
         println("==================")
         println("Day $nr:")
         this::class.java
-            .getResourceAsStream("$nr")
+            .getResourceAsStream("inputs/$nr")
             ?.bufferedReader()
             ?.let { solve(it.readLines()) }
         println("==================")
