@@ -1,8 +1,8 @@
 import java.lang.Integer.max
 import kotlin.math.abs
 
-typealias Position = Pair<Int, Int>
-typealias Move = Pair<Int, Int>
+private typealias Position = Pair<Int, Int>
+private typealias Move = Pair<Int, Int>
 
 fun Position.x(): Int = first
 fun Position.y(): Int = second

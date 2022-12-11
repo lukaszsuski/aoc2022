@@ -1,5 +1,5 @@
-typealias CratesStack = ArrayDeque<Char>
-typealias CratesStacks = Map<Int, CratesStack>
+private typealias CratesStack = ArrayDeque<Char>
+private typealias CratesStacks = Map<Int, CratesStack>
 
 class Day5 : Day(5) {
 
