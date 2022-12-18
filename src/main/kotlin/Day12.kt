@@ -1,15 +1,14 @@
+import java.lang.Integer.min
 
 class Day12 : Day(12) {
 
 
-    class PathFinder(val map: Map<Char>, val start: Cord, val end: Char) {
+    class PathFinder(val map: Map2d<Char>, val start: Cord, val end: Char) {
 
         private val currentPath = ArrayDeque<Cord>()
-        private val visited = HashMap<Cord, VisitedCord>()
+        private val visitedCords = HashMap<Cord, VisitedCord>().apply { put(start, VisitedCord(start, 0)) }
 
-        sealed class VisitedCord(var cost: Int = Int.MAX_VALUE) {
-
-            object Start : VisitedCord(0)
+        class VisitedCord(val cord: Cord, var cost: Int = Int.MAX_VALUE) {
         }
 
         private var shortestPath = ArrayDeque<Cord>()
@@ -22,15 +21,11 @@ class Day12 : Day(12) {
         }
 
         private fun drawPath(path: ArrayDeque<Cord>) {
-            val pathMap = map.map { row ->
-                row.mapTo(mutableListOf()) { '.' }
-            }
+            val pathMap = mapOfSize(map.width(), map.height(), '.')
             path.forEach {
                 pathMap[it.y()][it.x()] = map[it]!!
             }
-            pathMap.forEach {
-                println(it.joinToString(""))
-            }
+            pathMap.draw()
         }
 
         private fun visitNext(visited: Cord) {
@@ -46,16 +41,25 @@ class Day12 : Day(12) {
                     shortestPath.addAll(currentPath)
                 }
             } else {
-                visited.getAdjacent().forEach { adjacent ->
+                visited.adjacents()
+                    .mapNotNull { adjacent ->
 //                    println("${map.at(visited)} -> ${map.at(adjacent)}:")
 //                    println("$visited -> $adjacent:")
-                    if(adjacent.isWithinMap(map)
-                        && canGoFromTo(visited, adjacent)
-                        && currentPath.doesNotContain(adjacent)
-                    ) {
-                        visitNext(adjacent)
+                        if (adjacent.isWithin(map)
+                            && canGoFromTo(visited, adjacent)
+                            && currentPath.doesNotContain(adjacent)
+                        ) {
+                            //compare and set min of this+1 vs adjacent.cost
+                            visitedCords
+                                .computeIfAbsent(adjacent) { VisitedCord(start) }
+                                .apply { cost = min(cost, visitedCords[visited]!!.cost+1) }
+                            visitedCords[adjacent]
+                        } else {
+                            null
+                        }
                     }
-                }
+                    .sortedBy(VisitedCord::cost)
+                    .forEach { visitNext(it.cord) }
             }
 
             currentPath.removeLast()
@@ -88,7 +92,7 @@ class Day12 : Day(12) {
         }
 
         val pathFinder = PathFinder(map, 0 to 0, 'E')
-        println("part1: ${pathFinder.getShortestPath().size-1}")
+        println("part1: ${pathFinder.getShortestPath().size - 1}")
 
     }
 

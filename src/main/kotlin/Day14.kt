@@ -46,7 +46,7 @@ class Day14 : Day(14) {
             const val VOID = 'V'
         }
 
-        internal val map: Map<Char>
+        internal val map: Map2d<Char>
         private val offset: Cord
 
         init {
