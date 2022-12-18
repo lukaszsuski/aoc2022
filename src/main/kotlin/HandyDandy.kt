@@ -2,7 +2,6 @@
 typealias Map<T> = List<ArrayList<T>>
 typealias Cord = Pair<Int, Int>
 
-
 operator fun <T> Map<T>.get(cord: Cord) = this.getOrNull(cord.y())?.getOrNull(cord.x())
 operator fun <T> Map<T>.set(cord: Cord, value: T) { this[cord.y()][cord.x()] = value }
 fun <T> Map<T>.width() = this[0].size
@@ -33,7 +32,6 @@ operator fun Cord.minus(other: Cord): Cord = x() - other.x() to y() - other.y()
 fun <T> Cord.isWithinMap(map: Map<T>) = x() >= 0 && x() < map.width() && y() >= 0 && y() < map.height()
 fun Cord.cordsTo(to: Cord): List<Cord> = when {
     (x() == to.x()) -> {
-        println("draw vertical from $this $to")
         when  {
             (y() < to.y()) -> (y()..to.y()).map { x() to it }
             (y() > to.y()) -> (to.y()..y()).map { x() to it }
@@ -41,7 +39,6 @@ fun Cord.cordsTo(to: Cord): List<Cord> = when {
         }
     }
     (y() == to.y()) -> {
-        println("draw horizontal from $this to $to")
         when  {
             (x() < to.x()) -> (x()..to.x()).map { it to y() }
             (x() > to.x()) -> (to.x()..x()).map { it to y() }
