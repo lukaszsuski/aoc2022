@@ -1,50 +1,54 @@
 import java.util.concurrent.atomic.AtomicBoolean
 
-class Day13 : Day(13) {
+sealed class Packet(var isDivider: Boolean = false): Comparable<Packet> {
+    abstract override operator fun compareTo(other: Packet): Int
 
-    sealed class Packet(var isDivider: Boolean = false): Comparable<Packet> {
-        abstract override operator fun compareTo(other: Packet): Int
+    fun asDivider() = apply {
+        isDivider = true
+    }
+}
 
-        fun asDivider() = apply {
-            isDivider = true
+data class IntegerPacket(val element: Int): Packet() {
+    override fun compareTo(other: Packet): Int {
+        return when (other) {
+            is IntegerPacket -> element - other.element
+            is ListPacket -> asListPacket().compareTo(other)
         }
     }
 
-    data class IntegerPacket(val element: Int): Packet() {
-        override fun compareTo(other: Packet): Int {
-            return when (other) {
-                is IntegerPacket -> element - other.element
-                is ListPacket -> asListPacket().compareTo(other)
-            }
-        }
-
-        fun asListPacket(): Packet {
-            return ListPacket(mutableListOf(this))
-        }
+    fun asListPacket(): Packet {
+        return ListPacket(mutableListOf(this))
     }
+}
 
-    data class ListPacket(val elements: MutableList<Packet> = ArrayList()): Packet() {
-        fun add(element: Packet) = elements.add(element)
+data class ListPacket(val elements: MutableList<Packet> = ArrayList()): Packet() {
+    fun add(element: Packet) = elements.add(element)
 
-        override fun compareTo(other: Packet): Int {
-            return when (other) {
-                is IntegerPacket -> compareTo(other.asListPacket())
-                is ListPacket -> {
-                    elements.zip(other.elements)
-                        .map { it.first.compareTo(it.second) }
-                        .firstOrNull { it != 0 }
-                        ?:(elements.size - other.elements.size)
-                }
+    override fun compareTo(other: Packet): Int {
+        return when (other) {
+            is IntegerPacket -> compareTo(other.asListPacket())
+            is ListPacket -> {
+                elements.zip(other.elements)
+                    .map { it.first.compareTo(it.second) }
+                    .firstOrNull { it != 0 }
+                    ?:(elements.size - other.elements.size)
             }
         }
     }
+}
 
-    override fun solve(input: List<String>) {
+class Day13(input: List<String>) : Day(input) {
+
+    override fun part1(): Any? {
+        fun Pair<Packet, Packet>.isRightOrder(): Boolean = first < second
         val pairs = parsePacketPairs(input)
-        println("part1: ${pairs.withIndex()
+        return pairs.withIndex()
             .filter { it.value.isRightOrder() }
-            .sumOf { it.index + 1  }}")
+            .sumOf { it.index + 1  }
 
+    }
+
+    override fun part2(): Any? {
         val packets = input.filter(String::isNotBlank)
             .map(::parsePacket)
             .toCollection(mutableListOf())
@@ -52,13 +56,12 @@ class Day13 : Day(13) {
                 add(parsePacket("[[2]]").asDivider())
                 add(parsePacket("[[6]]").asDivider())
             }
-        println("part2: ${packets.sorted().withIndex()
+        return packets.sorted().withIndex()
             .filter { it.value.isDivider }
             .map { it.index + 1 }
-            .reduce(Int::times)}")
+            .reduce(Int::times)
     }
 
-    private fun Pair<Packet, Packet>.isRightOrder(): Boolean = first < second
 
     private fun parsePacketPairs(input: List<String>): List<Pair<Packet, Packet>> {
         return input.windowed(2, 3)

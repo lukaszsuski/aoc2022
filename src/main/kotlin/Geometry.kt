@@ -109,7 +109,7 @@ enum class Direction3 {
 
 data class Vec2(val x: Int, val y: Int) {
 
-    operator fun times(rotation: Rotation2) = Cord2(
+    operator fun times(rotation: Rotation2) = Vec2(
         this.x * rotation.matrix[0][0] + this.y * rotation.matrix[1][0],
         this.x * rotation.matrix[0][1] + this.y * rotation.matrix[1][1],
     )
@@ -227,6 +227,14 @@ class Rotation2(
                 arrayOf(sin(deg.toRad()).toInt(), cos(deg.toRad()).toInt())
             )
             Rotation2(matrix, deg)
+        }
+
+        fun rotate(dir: Char): Rotation2 {
+            return when (dir) {
+                'L' -> rotate(90)
+                'R' -> rotate(-90)
+                else -> throw IllegalArgumentException("not supported dir $dir")
+            }
         }
     }
 }

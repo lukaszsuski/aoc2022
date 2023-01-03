@@ -1,19 +1,22 @@
 import java.time.LocalDate
 import java.time.LocalDate.now
 
-const val SOLVE_ALL = "--all"
-
 fun main(args: Array<String>) {
 
     val today = now()
     val xMas = LocalDate.of(2022, 12, 25)
+    val solveTillDay = if (today.isBefore(xMas)) today.dayOfMonth else xMas.dayOfMonth
 
-    val solveTillDay = if (today.isBefore(xMas)) today.dayOfMonth else 25
-
-    if (today.isAfter(xMas) or args.contains(SOLVE_ALL)) {
-        (1..solveTillDay).forEach { Day.trySolve(it) }
-    } else {
-        Day.trySolve(today.dayOfMonth)
+    (1..solveTillDay).forEach {
+        println("Day $it:")
+        try {
+            Day.nr(it)?.let { day ->
+                println("Part1: \n${day.part1()}")
+                println("Part2: \n${day.part2()}")
+            }
+        } catch (e: Throwable) {
+            println("Failed: ${e}")
+        }
+        println("***************")
     }
-
 }

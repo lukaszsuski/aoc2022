@@ -1,68 +1,68 @@
 private typealias CratesStack = ArrayDeque<Char>
 private typealias CratesStacks = Map<Int, CratesStack>
 
-class Day5 : Day(5) {
+interface Crane {
+    fun process(cratesStacks: CratesStacks, moves: List<CraneMove>)
+}
 
-    interface Crane {
-        fun process(cratesStacks: CratesStacks, moves: List<Move>)
-    }
-
-    class Crane9000 : Crane {
-        override fun process(cratesStacks: CratesStacks, moves: List<Move>) {
-            moves.forEach { move ->
-                repeat(move.nrCratesToMove) {
-                    val crate = cratesStacks[move.fromStack]!!.removeLast()
-                    cratesStacks[move.toStack]!!.addLast(crate)
-                }
+class Crane9000 : Crane {
+    override fun process(cratesStacks: CratesStacks, moves: List<CraneMove>) {
+        moves.forEach { move ->
+            repeat(move.nrCratesToMove) {
+                val crate = cratesStacks[move.fromStack]!!.removeLast()
+                cratesStacks[move.toStack]!!.addLast(crate)
             }
         }
     }
+}
 
-    class Crane9001 : Crane {
-        override fun process(cratesStacks: CratesStacks, moves: List<Move>) {
-            moves.forEach { move ->
-                val pickedCrates = CratesStack()
-                repeat(move.nrCratesToMove) {
-                    pickedCrates.add(cratesStacks[move.fromStack]!!.removeLast())
-                }
-                cratesStacks[move.toStack]!!.addAll(pickedCrates.reversed())
+class Crane9001 : Crane {
+    override fun process(cratesStacks: CratesStacks, moves: List<CraneMove>) {
+        moves.forEach { move ->
+            val pickedCrates = CratesStack()
+            repeat(move.nrCratesToMove) {
+                pickedCrates.add(cratesStacks[move.fromStack]!!.removeLast())
             }
+            cratesStacks[move.toStack]!!.addAll(pickedCrates.reversed())
         }
     }
+}
 
-    data class Move(val nrCratesToMove: Int, val fromStack: Int, val toStack: Int) {
-        companion object {
-            fun from(move: String): Move {
-                val tokens = move.split(" ")
-                return Move(tokens[1].toInt(), tokens[3].toInt(), tokens[5].toInt())
-            }
+data class CraneMove(val nrCratesToMove: Int, val fromStack: Int, val toStack: Int) {
+    companion object {
+        fun from(move: String): CraneMove {
+            val tokens = move.split(" ")
+            return CraneMove(tokens[1].toInt(), tokens[3].toInt(), tokens[5].toInt())
         }
     }
+}
 
-    override fun solve(input: List<String>) {
-        val moves = parseMoves(input)
+class Day5(input: List<String>) : Day(input) {
 
-        val part1 = parseCratesStacks(input)
-        Crane9000().process(part1, moves)
-        println("part1: ${
-            part1.values
-                .map { it.last() }
-                .joinToString("")
-        }")
+    private val moves = parseMoves(input)
 
-        val part2 = parseCratesStacks(input)
-        Crane9001().process(part2, moves)
-        println("part2: ${
-            part2.values
-                .map { it.last() }
-                .joinToString("")
-        }")
+    override fun part1(): Any? {
+        val cratesStacks = parseCratesStacks(input)
+        Crane9000().process(cratesStacks, moves)
+        return cratesStacks.values
+            .map { it.last() }
+            .joinToString("")
     }
 
-    private fun parseMoves(input: List<String>): List<Move> {
+
+    override fun part2(): Any? {
+        val cratesStacks = parseCratesStacks(input)
+        Crane9001().process(cratesStacks, moves)
+        return cratesStacks.values
+            .map { it.last() }
+            .joinToString("")
+    }
+
+
+    private fun parseMoves(input: List<String>): List<CraneMove> {
         return input
             .filter { it.startsWith("move ") }
-            .map { Move.from(it) }
+            .map { CraneMove.from(it) }
     }
 
     private fun parseCratesStacks(input: List<String>): CratesStacks {
@@ -72,7 +72,7 @@ class Day5 : Day(5) {
             .filter { it.value.isDigit() }
             .associate { stackNr ->
                 val cratesStack = input
-                    .filter { it.startsWith("[") }
+                    .filter { it.contains("[") }
                     .map { crates -> crates.elementAtOrElse(stackNr.index) { _ -> ' ' } }
                     .reversed()
                     .filter { crate -> crate.isLetter() }
