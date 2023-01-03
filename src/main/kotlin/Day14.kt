@@ -3,12 +3,12 @@ import Day14.Cave.Companion.VOID
 import java.lang.Integer.max
 import java.lang.Integer.min
 
-typealias RockPath = Pair<Cord, Cord>
+typealias RockPath = Pair<Cord2, Cord2>
 
 private fun RockPath.from() = first
 private fun RockPath.to() = second
 
-private val VoidCord: Cord = Int.MIN_VALUE to Int.MAX_VALUE
+private val VoidCord: Cord2 = Cord2(Int.MIN_VALUE, Int.MAX_VALUE)
 
 class Day14 : Day(14) {
 
@@ -18,7 +18,7 @@ class Day14 : Day(14) {
         val cave1 = Cave(rockPaths, VOID)
         println("part1: ${
             (0..Int.MAX_VALUE).asSequence()
-                .map { cave1.dropSand(500 to 0) }
+                .map { cave1.dropSand(Cord2(500, 0)) }
                 .takeWhile { it != VoidCord }
                 .count()
         }")
@@ -26,8 +26,8 @@ class Day14 : Day(14) {
         val cave2 = Cave(rockPaths, ROCK, 200, 200)
         println("part1: ${
             (0..Int.MAX_VALUE).asSequence()
-                .map { cave2.dropSand(500 to 0) }
-                .takeWhile { it != 500 to 0 }
+                .map { cave2.dropSand(Cord2(500, 0)) }
+                .takeWhile { it != Cord2(500, 0) }
                 .count() + 1
         }")
     }
@@ -46,8 +46,8 @@ class Day14 : Day(14) {
             const val VOID = 'V'
         }
 
-        internal val map: Map2d<Char>
-        private val offset: Cord
+        internal val map: Map2<Char>
+        private val offset: Cord2
 
         init {
             var minX = Int.MAX_VALUE
@@ -55,12 +55,12 @@ class Day14 : Day(14) {
             var maxY = 0
 
             rockPaths.forEach { path ->
-                minX = min(path.from().x(), minX)
-                minX = min(path.to().x(), minX)
-                maxX = max(path.from().x(), maxX)
-                maxX = max(path.to().x(), maxX)
-                maxY = max(path.from().y(), maxY)
-                maxY = max(path.to().y(), maxY)
+                minX = min(path.from().x, minX)
+                minX = min(path.to().x, minX)
+                maxX = max(path.from().x, maxX)
+                maxX = max(path.to().x, maxX)
+                maxY = max(path.from().y, maxY)
+                maxY = max(path.to().y, maxY)
             }
 
             val minWidth = maxX - minX + 1
@@ -68,26 +68,26 @@ class Day14 : Day(14) {
             val minHeight = maxY + 1
             val height = minHeight + emptyBellow
             //todo check if right offset
-            offset = minX - emptyLeft to 0
+            offset = Cord2(minX - emptyLeft, 0)
 
-            map = mapOfSize(width, height, AIR)
+            map = Map2.ofSize(width, height, AIR)
             repeat(width) {
-                map[it to height - 1] = bottom
+                map[Cord2(it, height - 1)] = bottom
             }
 
             rockPaths.forEach {
                 val (from, to) = it
-                from.cordsTo(to).forEach {
+                (from .. to).forEach {
                     map[it - offset] = ROCK
                 }
             }
         }
 
-        fun dropSand(sandCord: Cord): Cord {
+        fun dropSand(sandCord: Cord2): Cord2 {
             return tryFallBelow(sandCord - offset)
         }
 
-        private fun tryFallBelow(sandCord: Cord): Cord {
+        private fun tryFallBelow(sandCord: Cord2): Cord2 {
             return when {
                 map[sandCord.below()] == VOID -> {
                     VoidCord
@@ -108,9 +108,9 @@ class Day14 : Day(14) {
             }
         }
 
-        private fun Cord.below(): Cord = x() to y() + 1
-        private fun Cord.belowLeft(): Cord = x() - 1 to y() + 1
-        private fun Cord.belowRight(): Cord = x() + 1 to y() + 1
+        private fun Cord2.below() = Cord2(x, y + 1)
+        private fun Cord2.belowLeft() = Cord2(x - 1, y + 1)
+        private fun Cord2.belowRight() = Cord2(x + 1, y + 1)
 
     }
 
@@ -120,7 +120,7 @@ class Day14 : Day(14) {
                 it.split(" -> ")
                     .map {
                         val (col, row) = it.trim().split(",")
-                        col.toInt() to row.toInt()
+                        Cord2(col.toInt(), row.toInt())
                     }
                     .windowed(2)
                     .map {

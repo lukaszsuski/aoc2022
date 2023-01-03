@@ -7,36 +7,25 @@ class Day18 : Day(18) {
         println("part2: ${lava.countArea(ShapeScan.CountAllWhereNearestIsOuterAir)}") //1980
     }
 
-    private fun parse3dCords(input: List<String>): List<Cord3d> {
+    private fun parse3dCords(input: List<String>): List<Cord3> {
         return input.map {
             val (x, y, z) = it.split(",")
-            Cord3d(x.toInt(), y.toInt(), z.toInt())
+            Cord3(x.toInt(), y.toInt(), z.toInt())
         }
     }
 
-    //todo clean up and move to handydandy
-    data class Cord3d(val x: Int, val y: Int, val z: Int) {
-        fun adjacents() = listOf(
-            Cord3d(x + 1, y, z),
-            Cord3d(x, y + 1, z),
-            Cord3d(x, y, z + 1),
-            Cord3d(x - 1, y, z),
-            Cord3d(x, y - 1, z),
-            Cord3d(x, y, z - 1),
-        )
-    }
 
 
     class ShapeScan(
-        val cords: List<Cord3d>,
+        val cords: List<Cord3>,
     ) {
         companion object {
             const val AIR = '.'
             const val LAVA = '#'
         }
 
-        private val box: Pair<Cord3d, Cord3d> = getBoxBounds()
-        private val map: HashMap<Cord3d, Char> = cords
+        private val box: Pair<Cord3, Cord3> = getBoxBounds()
+        private val map: HashMap<Cord3, Char> = cords
             .associateWith { LAVA }
             .toMap(HashMap())
 
@@ -44,16 +33,16 @@ class Day18 : Day(18) {
             inflateOuterAir()
         }
 
-        fun interface SurfaceCountStrategy : (ShapeScan, Cord3d) -> Boolean
+        fun interface SurfaceCountStrategy : (ShapeScan, Cord3) -> Boolean
 
         object CountAllWhereNearestIsNotLava : SurfaceCountStrategy {
-            override fun invoke(lava: ShapeScan, cord: Cord3d): Boolean {
+            override fun invoke(lava: ShapeScan, cord: Cord3): Boolean {
                 return lava.map[cord] != LAVA
             }
         }
 
         object CountAllWhereNearestIsOuterAir : SurfaceCountStrategy {
-            override fun invoke(lava: ShapeScan, cord: Cord3d): Boolean {
+            override fun invoke(lava: ShapeScan, cord: Cord3): Boolean {
                 return lava.map[cord] == AIR
             }
         }
@@ -74,7 +63,7 @@ class Day18 : Day(18) {
         }
 
         //need to be run with at least -Xss2m, try refactor to loop
-        private fun tryInflateAir(cord: Cord3d) {
+        private fun tryInflateAir(cord: Cord3) {
             val current = map[cord]
             if (current == null) {
                 map[cord] = AIR
@@ -84,13 +73,13 @@ class Day18 : Day(18) {
             }
         }
 
-        private fun Cord3d.isWithin(box: Pair<Cord3d, Cord3d>): Boolean {
+        private fun Cord3.isWithin(box: Pair<Cord3, Cord3>): Boolean {
             return x in box.first.x..box.second.x &&
                     y in box.first.y..box.second.y &&
                     z in box.first.z..box.second.z
         }
 
-        private fun getBoxBounds(): Pair<Cord3d, Cord3d> {
+        private fun getBoxBounds(): Pair<Cord3, Cord3> {
             var minX = Int.MAX_VALUE
             var minY = Int.MAX_VALUE
             var minZ = Int.MAX_VALUE
@@ -107,7 +96,7 @@ class Day18 : Day(18) {
                 maxZ = Integer.max(cord.z, maxZ)
             }
             //add buffer of one box on each side to inflate outer air
-            return Cord3d(minX - 1, minY - 1, minZ - 1) to Cord3d(maxX + 1, maxY + 1, maxZ + 1)
+            return Cord3(minX - 1, minY - 1, minZ - 1) to Cord3(maxX + 1, maxY + 1, maxZ + 1)
         }
     }
 

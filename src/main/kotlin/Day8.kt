@@ -28,39 +28,35 @@ class Day8 : Day(8) {
                 .filterIndexed { idx, _ -> idx < col }
                 .takeLastWhile { it < value }
                 .count()
-            if (visibleOnLeft < distanceFrom(Direction.LEFT, row, col)) visibleOnLeft += 1
+            if (visibleOnLeft < distanceFrom(Direction2.LEFT, row, col)) visibleOnLeft += 1
 
             var visibleOnRight = map[row]
                 .filterIndexed { idx, _ -> idx > col }
                 .takeWhile { it < value }
                 .count()
-            if (visibleOnRight < distanceFrom(Direction.RIGHT, row, col)) visibleOnRight += 1
+            if (visibleOnRight < distanceFrom(Direction2.RIGHT, row, col)) visibleOnRight += 1
 
             var visibleOnTop = map
                 .filterIndexed { idx, _ -> idx < row }
                 .takeLastWhile { it[col] < value }
                 .count()
-            if (visibleOnTop < distanceFrom(Direction.TOP, row, col)) visibleOnTop += 1
+            if (visibleOnTop < distanceFrom(Direction2.UP, row, col)) visibleOnTop += 1
 
             var visibleOnBottom = map
                 .filterIndexed { idx, _ -> idx > row }
                 .takeWhile { it[col] < value }
                 .count()
-            if (visibleOnBottom < distanceFrom(Direction.BOTTOM, row, col)) visibleOnBottom += 1
+            if (visibleOnBottom < distanceFrom(Direction2.DOWN, row, col)) visibleOnBottom += 1
 
             return visibleOnLeft * visibleOnRight * visibleOnTop * visibleOnBottom
         }
 
-        enum class Direction {
-            LEFT, RIGHT, TOP, BOTTOM
-        }
-
-        private fun distanceFrom(dir: Direction, row: Int, col: Int): Int {
+        private fun distanceFrom(dir: Direction2, row: Int, col: Int): Int {
             return when(dir) {
-                Direction.LEFT   -> col
-                Direction.RIGHT  -> xSize - col - 1
-                Direction.TOP    -> row
-                Direction.BOTTOM -> ySize - row - 1
+                Direction2.LEFT  -> col
+                Direction2.RIGHT -> xSize - col - 1
+                Direction2.UP    -> row
+                Direction2.DOWN  -> ySize - row - 1
             }
         }
 
