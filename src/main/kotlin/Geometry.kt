@@ -1,4 +1,3 @@
-import java.util.function.BiFunction
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -41,70 +40,53 @@ data class Map2<T>(val map: List<ArrayList<T>>) {
     }
 }
 
-enum class Turn {
-    LEFT, RIGHT;
+enum class Direction2 {
+    LEFT, RIGHT, UP, DOWN;
+
+    fun toVec2() = Vec2.unit(this)
+
+    fun rotate(rotation: Rotation2) = (toVec2() * rotation).toDirection2()
 
     companion object {
-        fun of(char: Char) = when (char.uppercase()) {
-            "L" -> LEFT
-            "R" -> RIGHT
-            else -> throw IllegalArgumentException("unknown turn")
-        }
-    }
-}
+        fun of(char: Char) = of(char.uppercase())
 
-enum class Direction2 {
-
-    LEFT {
-        override fun turn(turn: Turn) = when (turn) {
-            Turn.LEFT -> DOWN
-            Turn.RIGHT -> UP
+        fun of(string: String) = when (string.uppercase()) {
+            "D", "DOWN" -> DOWN
+            "U", "UP" -> UP
+            "R", "RIGHT" -> RIGHT
+            "L", "LEFT" -> LEFT
+            else -> throw IllegalArgumentException("Unknown direction")
         }
-    },
-    RIGHT {
-        override fun turn(turn: Turn) = when (turn) {
-            Turn.LEFT -> UP
-            Turn.RIGHT -> DOWN
-        }
-    },
-    UP {
-        override fun turn(turn: Turn) = when (turn) {
-            Turn.LEFT -> LEFT
-            Turn.RIGHT -> RIGHT
-        }
-    },
-    DOWN {
-        override fun turn(turn: Turn) = when (turn) {
-            Turn.LEFT -> RIGHT
-            Turn.RIGHT -> LEFT
-        }
-    };
-
-    abstract fun turn(turn: Turn): Direction2
-
-    fun turn(turn: Turn, times: Int = 1): Direction2 {
-        var direction = this
-        repeat(times) {
-            direction = direction.turn(turn)
-        }
-        return direction
-    }
-
-    operator fun minus(other: Direction2): Int {
-        //y points down!!
-        var tmp = this
-        var angle = 0
-        while (tmp != other) {
-            tmp = tmp.turn(Turn.RIGHT)
-            angle += 90
-        }
-        return angle
     }
 
 }
 
 enum class Direction3 {
     LEFT, RIGHT, UP, DOWN, FRONT, BACK;
+
+    fun toVec3() = Vec3.unit(this)
+
+    fun toDirection2() = when (this) {
+        LEFT -> Direction2.LEFT
+        RIGHT -> Direction2.RIGHT
+        UP -> Direction2.UP
+        DOWN -> Direction2.DOWN
+        else -> null
+    }
+
+    companion object {
+        fun of(char: Char) = of(char.uppercase())
+
+        fun of(string: String) = when (string.uppercase()) {
+            "D", "DOWN" -> DOWN
+            "U", "UP" -> UP
+            "R", "RIGHT" -> RIGHT
+            "L", "LEFT" -> LEFT
+            "F", "FRONT" -> FRONT
+            "B", "BACK" -> BACK
+            else -> throw IllegalArgumentException("Unknown direction")
+        }
+    }
 }
 
 data class Vec2(val x: Int, val y: Int) {
@@ -114,15 +96,17 @@ data class Vec2(val x: Int, val y: Int) {
         this.x * rotation.matrix[0][1] + this.y * rotation.matrix[1][1],
     )
 
-    fun direction(): Direction2 {
-        return when {
-            x < 0 && y == 0 ->  Direction2.LEFT
-            x > 0 && y == 0 ->  Direction2.RIGHT
-            x == 0 && y < 0 ->  Direction2.UP
-            x == 0 && y > 0 ->  Direction2.DOWN
-            else -> throw IllegalStateException("only l/r/u/d are supported")
-        }
+    fun toDirection2() = when {
+        x < 0 && y == 0 -> Direction2.LEFT
+        x > 0 && y == 0 -> Direction2.RIGHT
+        x == 0 && y < 0 -> Direction2.UP
+        x == 0 && y > 0 -> Direction2.DOWN
+        else -> throw IllegalStateException("only l/r/u/d are supported")
     }
+
+    fun toVec3() = Vec3(x, y, 0)
+
+    operator fun minus(vector: Vec2) = Vec2(x - vector.x, y - vector.y)
 
     companion object {
         fun unit(direction: Direction2): Vec2 {
@@ -136,6 +120,40 @@ data class Vec2(val x: Int, val y: Int) {
     }
 }
 
+data class Vec3(val x: Int, val y: Int, val z: Int) {
+
+    operator fun times(rotation: Rotation3) = Vec3(
+        this.x * rotation.matrix[0][0] + this.y * rotation.matrix[1][0] + this.z * rotation.matrix[2][0],
+        this.x * rotation.matrix[0][1] + this.y * rotation.matrix[1][1] + this.z * rotation.matrix[2][1],
+        this.x * rotation.matrix[0][2] + this.y * rotation.matrix[1][2] + this.z * rotation.matrix[2][2],
+    )
+
+    fun toDirection3() = when {
+        x < 0 && y == 0 && z == 0 -> Direction3.LEFT
+        x > 0 && y == 0 && z == 0 -> Direction3.RIGHT
+        x == 0 && y < 0 && z == 0 -> Direction3.UP
+        x == 0 && y > 0 && z == 0 -> Direction3.DOWN
+        x == 0 && y == 0 && z < 0 -> Direction3.FRONT
+        x == 0 && y == 0 && z > 0 -> Direction3.BACK
+        else -> throw IllegalStateException("only l/r/u/d/f/b are supported")
+    }
+
+    fun toVec2() = takeIf { z == 0 }
+        ?.let { Vec2(x, y) }
+
+    companion object {
+        fun unit(direction: Direction3): Vec3 {
+            return when (direction) {
+                Direction3.LEFT -> Vec3(-1, 0, 0)
+                Direction3.RIGHT -> Vec3(1, 0, 0)
+                Direction3.UP -> Vec3(0, -1, 0)
+                Direction3.DOWN -> Vec3(0, 1, 0)
+                Direction3.FRONT -> Vec3(0, 0, -1)
+                Direction3.BACK -> Vec3(0, 0, 1)
+            }
+        }
+    }
+}
 
 
 data class Cord2(val x: Int, val y: Int) {
@@ -147,47 +165,31 @@ data class Cord2(val x: Int, val y: Int) {
     )
 
     fun <T> isWithin(map: Map2<T>) = x >= 0 && x < map.width && y >= 0 && y < map.height
-    operator fun plus(other: Cord2) = Cord2(x + other.x, y + other.y)
-    operator fun plus(direction: Direction2) = when (direction) {
-        Direction2.LEFT -> Cord2(x - 1, y)
-        Direction2.RIGHT -> Cord2(x + 1, y)
-        Direction2.UP -> Cord2(x, y - 1)
-        Direction2.DOWN -> Cord2(x, y + 1)
-    }
-    operator fun minus(other: Cord2) = Cord2(x - other.x, y - other.y)
-    operator fun times(value: Int) = Cord2(x * value, y * value)
-    //todo same as Vec2
-    operator fun times(rotation: Rotation2) = Cord2(
-        this.x * rotation.matrix[0][0] + this.y * rotation.matrix[1][0],
-        this.x * rotation.matrix[0][1] + this.y * rotation.matrix[1][1],
-    )
-    operator fun div(value: Int) = Cord2(x / value, y / value)
-    operator fun rem(value: Int) = Cord2(x % value, y % value)
+
+    operator fun plus(vector: Vec2) = Cord2(x + vector.x, y + vector.y)
+    operator fun minus(vector: Vec2) = Cord2(x - vector.x, y - vector.y)
+    operator fun times(scalar: Int) = Cord2(x * scalar, y * scalar)
+    operator fun div(scalar: Int) = Cord2(x / scalar, y / scalar)
+    operator fun rem(scalar: Int) = Cord2(x % scalar, y % scalar)
 
     operator fun rangeTo(to: Cord2): List<Cord2> = when {
-        (x == to.x) -> {
+        (x < to.x) -> (x..to.x).flatMap { itX ->
             when {
-                (y < to.y) -> (y..to.y).map { Cord2(x, it) }
-                (y > to.y) -> (to.y..y).map { Cord2(x, it) }
-                else -> emptyList()
+                (y < to.y) -> (y..to.y).map { Cord2(itX, it) }
+                else -> (to.y..y).map { Cord2(itX, it) }
             }
         }
-        (y == to.y) -> {
+        else -> (to.x..x).flatMap { itX ->
             when {
-                (x < to.x) -> (x..to.x).map { Cord2(it, y) }
-                (x > to.x) -> (to.x..x).map { Cord2(it, y) }
-                else -> emptyList()
+                (y < to.y) -> (y..to.y).map { Cord2(itX, it) }
+                else -> (to.y..y).map { Cord2(itX, it) }
             }
-        }
-        else -> {
-            throw IllegalArgumentException("from and to must be in straight line")
         }
     }
 
-    companion object {
-        val ZERO: Cord2 = Cord2(0, 0)
-    }
+    fun toVec2() = Vec2(x, y)
 
+    fun toCord3() = Cord3(x, y, 0)
 }
 
 data class Cord3(val x: Int, val y: Int, val z: Int) {
@@ -200,15 +202,11 @@ data class Cord3(val x: Int, val y: Int, val z: Int) {
         Cord3(x, y, z - 1),
     )
 
-    operator fun times(rotation: Rotation3) = Cord3(
-        this.x * rotation.matrix[0][0] + this.y * rotation.matrix[1][0] + this.z * rotation.matrix[2][0],
-        this.x * rotation.matrix[0][1] + this.y * rotation.matrix[1][1] + this.z * rotation.matrix[2][1],
-        this.x * rotation.matrix[0][2] + this.y * rotation.matrix[1][2] + this.z * rotation.matrix[2][2],
-    )
+    fun toVec3() = Vec3(x, y, z)
+
+    fun toCord2() = takeIf { z == 0 }
+        ?.let { Cord2(x, y) }
 }
-
-
-
 
 
 class Rotation2(
@@ -242,21 +240,39 @@ class Rotation2(
 class Rotation3(
     val matrix: Array<Array<Int>>,
     private val axis: String,
-    private val deg: Int
 ) {
 
     fun inverse(): Rotation3 {
-            val cols = matrix[0].size
-            val rows = matrix.size
+        val cols = matrix[0].size
+        val rows = matrix.size
         val transposedMatrix = Array(cols) { j ->
             Array(rows) { i ->
                 matrix[i][j]
             }
         }
-        return Rotation3(transposedMatrix, "inv($axis)", deg)
+        return Rotation3(transposedMatrix, "inv($axis)")
     }
 
-    override fun toString() = "$axis($deg')"
+    operator fun times(other: Rotation3) = Rotation3(
+        arrayOf(
+            arrayOf(
+                matrix[0][0] * other.matrix[0][0] + matrix[0][1] * other.matrix[1][0] + matrix[0][2] * other.matrix[2][0],
+                matrix[0][0] * other.matrix[0][1] + matrix[0][1] * other.matrix[1][1] + matrix[0][2] * other.matrix[2][1],
+                matrix[0][0] * other.matrix[0][2] + matrix[0][1] * other.matrix[1][2] + matrix[0][2] * other.matrix[2][2],
+            ),
+            arrayOf(
+                matrix[1][0] * other.matrix[0][0] + matrix[1][1] * other.matrix[1][0] + matrix[1][2] * other.matrix[2][0],
+                matrix[1][0] * other.matrix[0][1] + matrix[1][1] * other.matrix[1][1] + matrix[1][2] * other.matrix[2][1],
+                matrix[1][0] * other.matrix[0][2] + matrix[1][1] * other.matrix[1][2] + matrix[1][2] * other.matrix[2][2],
+            ),
+            arrayOf(
+                matrix[2][0] * other.matrix[0][0] + matrix[2][1] * other.matrix[1][0] + matrix[2][2] * other.matrix[2][0],
+                matrix[2][0] * other.matrix[0][1] + matrix[2][1] * other.matrix[1][1] + matrix[2][2] * other.matrix[2][1],
+                matrix[2][0] * other.matrix[0][2] + matrix[2][1] * other.matrix[1][2] + matrix[2][2] * other.matrix[2][2],
+            )
+        ), "$this * $other")
+
+    override fun toString() = "$($axis')"
 
     companion object {
         private val cache = HashMap<Pair<Char, Int>, Rotation3>()
@@ -267,7 +283,7 @@ class Rotation3(
                 arrayOf(0, cos(deg.toRad()).toInt(), -sin(deg.toRad()).toInt()),
                 arrayOf(0, sin(deg.toRad()).toInt(), cos(deg.toRad()).toInt())
             )
-            Rotation3(matrix, "X", deg)
+            Rotation3(matrix, "X@$deg")
         }
 
         fun rotateY(deg: Int) = cache.computeIfAbsent('Y' to deg) {
@@ -276,7 +292,7 @@ class Rotation3(
                 arrayOf(0, 1, 0),
                 arrayOf(-sin(deg.toRad()).toInt(), 0, cos(deg.toRad()).toInt()),
             )
-            Rotation3(matrix, "Y", deg)
+            Rotation3(matrix, "Y@$deg")
         }
 
         fun rotateZ(deg: Int) = cache.computeIfAbsent('Z' to deg) {
@@ -285,21 +301,11 @@ class Rotation3(
                 arrayOf(sin(deg.toRad()).toInt(), cos(deg.toRad()).toInt(), 0),
                 arrayOf(0, 0, 1),
             )
-            Rotation3(matrix, "Z", deg)
+            Rotation3(matrix, "Z@$deg")
         }
 
         val noRotation = rotateX(0)
-
-
     }
-
 }
 
 fun Int.toRad() = Math.toRadians(this.toDouble())
-
-fun <K, V> HashMap<K, V>.forEachCompute(remapping: BiFunction<K, V, V>) {
-    forEach { (key, value) ->
-        set(key, remapping.apply(key, value))
-    }
-}
-

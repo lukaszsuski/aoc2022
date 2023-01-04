@@ -26,7 +26,7 @@ class Cave(
     }
     internal val map: Map2<Char>
 
-    private val offset: Cord2
+    private val offset: Vec2
 
     init {
         var minX = Int.MAX_VALUE
@@ -46,8 +46,7 @@ class Cave(
         val width = minWidth + emptyLeft + emptyRight
         val minHeight = maxY + 1
         val height = minHeight + emptyBellow
-        //todo check if right offset
-        offset = Cord2(minX - emptyLeft, 0)
+        offset = Vec2(minX - emptyLeft, 0)
 
         map = Map2.ofSize(width, height, AIR)
         repeat(width) {

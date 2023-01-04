@@ -6,7 +6,7 @@ data class Character(
 ) {
     fun move(move: BoardMove) {
         when (move) {
-            is BoardMove.TurnMove -> direction = direction.turn(move.turn)
+            is BoardMove.TurnMove -> direction = direction.rotate(move.turn)
             is BoardMove.Walk -> repeat(move.nrFields) {
                 val (nextPos, nextDirection) = map.nextPos(pos, direction)
                 pos = nextPos
@@ -34,7 +34,7 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
     private val wrapPolicy: WrapPolicy = wrapPolicyClass.constructors.first().call(map)
 
     fun nextPos(pos: Cord2, direction: Direction2): Pair<Cord2, Direction2> {
-        val next = pos + direction
+        val next = pos + direction.toVec2()
         return when (map[next]) {
             OPEN_TILE -> next to direction
             SOLID_WALL -> pos to direction
@@ -85,25 +85,13 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
         object NoFace : MaybeFace()
         data class Face(
             var cord: Cord2,
-            var normal: Cord3 = Cord3(0, 0, -1), //normal vec to xy plane
-            var direction: Cord3 = Cord3(0, -1, 0), //vec pointing up (towards negative y)
+            var rotation: Rotation3 = Rotation3.noRotation
         ) : MaybeFace() {
-            fun rotate(rotation: Rotation3) {
-                normal *= rotation
-                direction *= rotation
+            fun rotate(r: Rotation3) {
+                rotation *= r
             }
 
-            fun xyFaceNormalDirection() = projectTo2dDirection(normal)
-
-            fun xyFaceUpDirection() = projectTo2dDirection(direction)
-
-            private fun projectTo2dDirection(cord: Cord3) = when (cord) {
-                Cord3(-1, 0, 0) -> Direction2.LEFT
-                Cord3(1, 0, 0) -> Direction2.RIGHT
-                Cord3(0, -1, 0) -> Direction2.UP
-                Cord3(0, 1, 0) -> Direction2.DOWN
-                else -> null
-            }
+            fun normalDirection() = Vec3.unit(Direction3.FRONT) * rotation
         }
 
         private val faceWrapsCache = mutableMapOf<Pair<Cord2, Direction2>, Face>()
@@ -111,12 +99,7 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
         private val cubeEdgeLength = max(map.height, map.width) / 4
 
         //maps 2d face cords to 3d faces that will be folded (transformed)
-        //todo replace with (Cord2(0,0) .. Cord2(3,3))
-        private fun cubeFaces() = (0..3).flatMap { y ->
-            (0..3).map { x ->
-                Cord2(x, y)
-            }
-        }.associateWith { faceCord ->
+        private fun cubeFaces() = (Cord2(0, 0)..Cord2(3, 3)).associateWith { faceCord ->
             map[faceCord * cubeEdgeLength]?.let {
                 when (it) {
                     EMPTY -> NoFace
@@ -134,63 +117,66 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
                 foldFaces(faces, faces[originFaceCord] as Face)
                 faces.values.filterIsInstance<Face>().first {
                     //filter by the direction of face normal vector
-                    it.xyFaceNormalDirection() == direction
+                    it.normalDirection().toVec2() == direction.toVec2()
                 }.also {
-                    //unfold adjacent face to get 2d direction projection
-                    val unfoldMatrix = getFoldRotation(originFaceCord, originFaceCord + direction).inverse()
-                    it.rotate(unfoldMatrix)
+                    //fold adjacent face to make it overlay (inverted) with current face,
+                    // so that face local current pos and destination pos overlaps and directions are opposite
+                    val overlayMatrix = getFoldRotation(originFaceCord, originFaceCord + direction.toVec2())
+                    it.rotate(overlayMatrix)
                 }
             }
 
-            //how much destination face is rotated
-            val wrappedFaceDirectionDiff = wrappedFace.xyFaceUpDirection()!! - Direction2.UP
-            val edgeRotationMatrix = Rotation2.rotate(wrappedFaceDirectionDiff)
+            val destCord = destinationCord(wrappedFace, current)
+            val destinationDirection = destinationDirection(direction, wrappedFace)
 
-            //rotate destination edges to align with origin face
-            val destEdgesMap = wrappedFaceEdgeMapping(wrappedFace)
-            destEdgesMap.forEachCompute { _, v -> v * edgeRotationMatrix }
-
-            //get left/upper-most cord and offset to (0,0) to work on face local cords
-            val destFaceLocalOffset = destEdgesMap.values.sortedBy(Cord2::x).sortedBy(Cord2::y).first()
-            destEdgesMap.forEachCompute { _, v -> v - destFaceLocalOffset }
-
-            //get origin face (0,0) local cords
-            val localOriginFaceCord = current % cubeEdgeLength
-
-            //get destination cord as face local cord
-            val destEdgePos = when (direction) {
-                Direction2.LEFT -> Cord2(localOriginFaceCord.x + cubeEdgeLength - 1, localOriginFaceCord.y)
-                Direction2.RIGHT -> Cord2(localOriginFaceCord.x - cubeEdgeLength + 1, localOriginFaceCord.y)
-                Direction2.UP -> Cord2(localOriginFaceCord.x, localOriginFaceCord.y + cubeEdgeLength - 1)
-                Direction2.DOWN -> Cord2(localOriginFaceCord.x, localOriginFaceCord.y - cubeEdgeLength + 1)
-            }
-
-            //restore mapped cord on map from local edge cord
-            val destCord = destEdgesMap.entries.first { it.value == destEdgePos }.key
-
-            //turn direction as many times right as many right corners are between up vector of origin face and destination face
-            val destDirection = direction.turn(Turn.RIGHT, wrappedFaceDirectionDiff / 90)
-
-            return destCord to destDirection
+            return destCord to destinationDirection
         }
 
-        private fun wrappedFaceEdgeMapping(wrappedFace: Face): HashMap<Cord2, Cord2> {
-            val destEdgesMap = HashMap<Cord2, Cord2>()
-            val destEdgeTopLeft = wrappedFace.cord * cubeEdgeLength
-            val destEdgeTopRight = destEdgeTopLeft + Cord2(cubeEdgeLength - 1, 0)
-            val destEdgeBottomLeft = destEdgeTopLeft + Cord2(0, cubeEdgeLength - 1)
-            val destEdgeBottomRight = destEdgeTopLeft + Cord2(cubeEdgeLength - 1, cubeEdgeLength - 1)
-            (destEdgeTopLeft..destEdgeTopRight).forEach { destEdgesMap[it] = it }
-            (destEdgeTopLeft..destEdgeBottomLeft).forEach { destEdgesMap[it] = it }
-            (destEdgeBottomLeft..destEdgeBottomRight).forEach { destEdgesMap[it] = it }
-            (destEdgeTopRight..destEdgeBottomRight).forEach { destEdgesMap[it] = it }
-            return destEdgesMap
+        private fun destinationDirection(direction: Direction2, wrappedFace: Face): Direction2 {
+            //direction of folded and overlapped face is opposite to current direction
+            //find projection by rotating opposite  of current and applying inverse rotation of folded face
+            val destDirection3 =
+                direction.rotate(Rotation2.rotate(180)).toVec2().toVec3() * wrappedFace.rotation.inverse()
+            return destDirection3.toDirection3().toDirection2()!!
+        }
+
+        private fun destinationCord(wrappedFace: Face, current: Cord2): Cord2 {
+            //restores position on wrapped face by undoing rotation matrix
+
+            //trace wrapped face corners to ease restoring of mapped cord
+            val positionWithFaceCorners = listOf(
+                wrappedFace.cord * cubeEdgeLength,
+                wrappedFace.cord * cubeEdgeLength + Vec2(cubeEdgeLength - 1, 0),
+                wrappedFace.cord * cubeEdgeLength + Vec2(0, cubeEdgeLength - 1),
+                wrappedFace.cord * cubeEdgeLength + Vec2(cubeEdgeLength - 1, cubeEdgeLength - 1)
+            ).associateWithTo(HashMap()) { it }
+                .also { it[current] = current }
+
+            val rotatedProjection = positionWithFaceCorners
+                //work on face local cords - offset to (0,0)
+                .mapValues { (_, v) -> v % cubeEdgeLength }
+                //translate to 3d space
+                .mapValues { (_, v) -> v.toCord3().toVec3() }
+                //undo wrapped face rotation to restore local destination cord
+                .mapValues { (_, v) -> v * wrappedFace.rotation.inverse() }
+                //project back to 2d space
+                .mapValues { (_, v) -> v.toVec2()!! }
+
+            //get most left-upper corner
+            val zeroOffset = rotatedProjection.values.sortedBy(Vec2::x).sortedBy(Vec2::y).first()
+
+            //re-hook to (0,0) to get face local destination cord
+            val zeroHookedProjection = rotatedProjection
+                .mapValues { (_, v) -> v - zeroOffset }
+
+            //get global destination cord
+            return wrappedFace.cord * cubeEdgeLength + zeroHookedProjection[current]!!
         }
 
         private fun foldFaces(
             faceMap: Map<Cord2, MaybeFace>, foldedFace: Face, previousFace: Face? = null
         ) {
-            //first fold adjacents so we only fold in xy plane
+            //first fold adjacents so we need to only fold around x and y axes
             foldedFace.cord.adjacents().map { faceMap[it] }.filterIsInstance<Face>()
                 .filterNot { it == previousFace }.forEach { foldFaces(faceMap, it, foldedFace) }
 
@@ -214,10 +200,10 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
             fixed: Cord2, folded: Cord2
         ): Rotation3 = when {
             //rotates back / behind the screen
-            fixed.x > folded.x -> /*to is on left*/ Rotation3.rotateY(-90)
-            fixed.x < folded.x -> /*to is on right*/ Rotation3.rotateY(90)
-            fixed.y > folded.y -> /*to is above*/ Rotation3.rotateX(90)
-            fixed.y < folded.y -> /*to is below*/ Rotation3.rotateX(-90)
+            fixed.x > folded.x -> /*folded is on left*/ Rotation3.rotateY(-90)
+            fixed.x < folded.x -> /*folded is on right*/ Rotation3.rotateY(90)
+            fixed.y > folded.y -> /*folded is above*/ Rotation3.rotateX(90)
+            fixed.y < folded.y -> /*folded is below*/ Rotation3.rotateX(-90)
             fixed == folded -> Rotation3.noRotation
             else -> throw IllegalArgumentException("Unsupported face relation")
         }
@@ -231,7 +217,7 @@ class StrangeBoard<T : StrangeBoard.WrapPolicy>(
 }
 
 sealed class BoardMove {
-    data class TurnMove(val turn: Turn) : BoardMove()
+    data class TurnMove(val turn: Rotation2) : BoardMove()
     data class Walk(val nrFields: Int) : BoardMove()
 }
 
@@ -259,8 +245,8 @@ class Day22(input: List<String>) : Day(input) {
 
     private fun parseMap(input: List<String>): Map2<Char> {
         return input.takeWhile { it.isNotBlank() }.map { row ->
-                row.mapTo(ArrayList()) { it }
-            }.let { Map2(it) }
+            row.mapTo(ArrayList()) { it }
+        }.let { Map2(it) }
     }
 
     private fun parseMoves(input: List<String>): List<BoardMove> {
@@ -275,7 +261,7 @@ class Day22(input: List<String>) : Day(input) {
                 }
                 remaining.first().isLetter() -> {
                     pos += 1
-                    BoardMove.TurnMove(Turn.of(remaining.first()))
+                    BoardMove.TurnMove(Rotation2.rotate(remaining.first()))
                 }
                 else -> throw IllegalStateException("Failed to parse remaining: $remaining")
             }
@@ -283,6 +269,4 @@ class Day22(input: List<String>) : Day(input) {
         }
         return moves
     }
-
-
 }
