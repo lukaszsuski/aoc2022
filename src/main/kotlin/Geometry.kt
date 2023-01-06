@@ -1,15 +1,24 @@
 import kotlin.math.cos
 import kotlin.math.sin
 
-data class Map2<T>(val map: List<ArrayList<T>>) {
+data class Map2<T>(val map: List<ArrayList<T>>): List<ArrayList<T>> by map {
 
     val width = map.maxOf { it.size }
 
     val height = map.size
 
-    fun find(item: T): Cord2 = map.withIndex()
-        .map { row -> Cord2(row.value.indexOfFirst { it == item }, row.index) }
-        .first()
+    fun findFirst(item: T): Cord2 = map.withIndex()
+        .firstNotNullOf { row ->
+            row.value.indexOfFirst { it == item }
+                .let { if (it >= 0) Cord2(it, row.index) else null }
+        }
+
+    fun findAll(item: T): List<Cord2> = map.withIndex()
+        .flatMap { row ->
+            row.value.withIndex()
+                .filter { it.value == item }
+                .map { Cord2(it.index, row.index) }
+        }
 
     operator fun get(cord: Cord2) = map.getOrNull(cord.y)?.getOrNull(cord.x)
 
@@ -18,9 +27,7 @@ data class Map2<T>(val map: List<ArrayList<T>>) {
     }
 
     override fun toString(): String {
-        return map.map {
-            println(it.joinToString(", "))
-        }.joinToString { "\n" }
+        return map.joinToString(System.lineSeparator()) { it.joinToString("") }
     }
 
     companion object {
@@ -270,7 +277,8 @@ class Rotation3(
                 matrix[2][0] * other.matrix[0][1] + matrix[2][1] * other.matrix[1][1] + matrix[2][2] * other.matrix[2][1],
                 matrix[2][0] * other.matrix[0][2] + matrix[2][1] * other.matrix[1][2] + matrix[2][2] * other.matrix[2][2],
             )
-        ), "$this * $other")
+        ), "$this * $other"
+    )
 
     override fun toString() = "$($axis')"
 

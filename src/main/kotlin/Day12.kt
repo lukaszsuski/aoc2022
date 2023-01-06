@@ -1,101 +1,129 @@
-import java.lang.Integer.min
+class PathFinder(
+    val map: Map2<Char>,
+    private val startCord: Cord2,
+    private val end: Char,
+    private val traverseRules: TraverseRules
+) {
 
-class PathFinder(val map: Map2<Char>, val start: Cord2, val end: Char) {
+    data class SearchResult(
+        val cord: Cord2,
+        val distance: Int
+    )
 
-    private val currentPath = ArrayDeque<Cord2>()
-    private val visitedCords = HashMap<Cord2, VisitedCord>().apply { put(start, VisitedCord(start, 0)) }
-
-    class VisitedCord(val cord: Cord2, var cost: Int = Int.MAX_VALUE) {
+    fun interface TraverseRules {
+        fun canGoFromTo(from: Char, to: Char): Boolean
     }
 
-    private var shortestPath = ArrayDeque<Cord2>()
-
-    fun getShortestPath(): ArrayDeque<Cord2> {
-        visitNext(start)
-//            println("shortest found path of length: ${shortestPath.size}")
-//            drawPath(shortestPath)
-        return shortestPath
+    private data class VisitedCord(
+        val cord: Cord2,
+        var prev: Cord2? = null,
+        var cost: Int = Int.MAX_VALUE,
+        var visited: Boolean = false
+    ) {
+        override fun equals(other: Any?) = other is VisitedCord && cord == other.cord
+        override fun hashCode() = cord.hashCode()
     }
 
-    private fun drawPath(path: ArrayDeque<Cord2>) {
-        val pathMap = Map2.ofSize(map.width, map.height, '.')
+    private val visitedCords: HashMap<Cord2, VisitedCord> by lazy {
+        HashMap<Cord2, VisitedCord>().also { visitedCords ->
+            val startVisited = visitedCords.compute(startCord) { _, _ -> VisitedCord(startCord, cost = 0, visited = true) }
+            val toVisit = HashSet<VisitedCord>()
+            toVisit.add(startVisited!!)
+
+            while (toVisit.isNotEmpty()) {
+                val visited = toVisit
+                    .sortedBy(VisitedCord::cost)
+                    .first()
+
+                val value = map[visited.cord]!!
+
+                visited.cord.adjacents()
+                    .mapNotNull { map[it]?.let { ch -> it to ch } }
+                    .filter { (adjCord, adjValue) ->
+                        traverseRules.canGoFromTo(value, adjValue) && visitedCords[adjCord]?.visited != true
+                    }
+                    .mapNotNull { (adjCord, _) ->
+                        visitedCords.computeIfAbsent(adjCord) { VisitedCord(it) }
+                            .takeIf { !it.visited }
+                            ?.apply {
+                                if (cost > visitedCords[visited.cord]!!.cost + 1) {
+                                    cost = visitedCords[visited.cord]!!.cost + 1
+                                    prev = visited.cord
+                                }
+                            }
+                    }
+                    .also { visited.visited = true }
+                    .toCollection(toVisit)
+
+                toVisit.remove(visited)
+            }
+        }
+    }
+
+    fun getShortestPath(): SearchResult {
+        return map.findAll(end)
+            .mapNotNull { visitedCords[it] }
+            .minBy { it.cost }
+            .let { SearchResult(it.cord, it.cost) }
+    }
+
+    fun drawPathTo(location: SearchResult) {
+        val path = ArrayDeque<VisitedCord>()
+        var it = visitedCords[location.cord]
+        while (it?.prev != null) {
+            path.addFirst(it)
+            it = visitedCords[it.prev]
+        }
+
+        val pathMap = Map2.ofSize(map.width, map.height, ".")
+        map.forEachIndexed { row, list ->
+            list.forEachIndexed { col, char -> pathMap[Cord2(col, row)] = char.toString() }
+        }
         path.forEach {
-            pathMap[it] = map[it]!!
+            pathMap[it.cord] = pathMap[it.cord]?.red()!!
         }
         println(pathMap)
     }
 
-    private fun visitNext(visited: Cord2) {
-//            println("${map.at(visited)} ${visited}:")
-        currentPath.addLast(visited)
+    private fun String.red(): String = "\u001B[31m${this}\u001B[0m"
 
-        if (map[visited] == end) {
-            //path found
-            println("\t\tfound path of length: ${currentPath.size}")
-//                drawPath(currentPath)
-            if (currentPath.size < shortestPath.size || shortestPath.isEmpty()) {
-                shortestPath.clear()
-                shortestPath.addAll(currentPath)
-            }
-        } else {
-            visited.adjacents()
-                .mapNotNull { adjacent ->
-//                    println("${map.at(visited)} -> ${map.at(adjacent)}:")
-//                    println("$visited -> $adjacent:")
-                    //todo avoid isWithin()
-                    if (adjacent.isWithin(map)
-                        && canGoFromTo(visited, adjacent)
-                        && currentPath.doesNotContain(adjacent)
-                    ) {
-                        //compare and set min of this+1 vs adjacent.cost
-                        visitedCords
-                            .computeIfAbsent(adjacent) { VisitedCord(start) }
-                            .apply { cost = min(cost, visitedCords[visited]!!.cost + 1) }
-                        visitedCords[adjacent]
-                    } else {
-                        null
-                    }
-                }
-                .sortedBy(VisitedCord::cost)
-                .forEach { visitNext(it.cord) }
-        }
-
-        currentPath.removeLast()
-    }
-
-    private fun ArrayDeque<Cord2>.doesNotContain(next: Cord2) = !contains(next)
-
-    private fun canGoFromTo(current: Cord2, next: Cord2): Boolean {
-        if (current == start) {
-//                println("\tcan go anywhere from start")
-            return true
-        }
-        if (map[current] == 'z' && map[next] == end) {
-//                println("\tcan go from z to end (current:${map.at(current)}, next:${map.at(next)})")
-            return true
-        }
-        if (map[next] in 'a'..'z') {
-            val b = map[next]!! - map[current]!! <= 1
-//                println("\tnext is ${if (!b) "NOT" else ""} at most 1 higher")
-            return b
-        }
-        return false
-    }
 }
 
 class Day12(input: List<String>) : Day(input) {
 
-    override fun part1(): Any? {
-        val map = input.map { row ->
-            row.mapTo(ArrayList()) { it }
-        }
+    val map = Map2(input.map { row ->
+        row.mapTo(ArrayList()) { it }
+    })
 
-        val pathFinder = PathFinder(Map2(map), Cord2(0, 0), 'E')
-        return pathFinder.getShortestPath().size - 1
+    override fun part1(): Any? {
+        val ascendingRules = PathFinder.TraverseRules { from, to ->
+            when {
+                from == 'S' -> true
+                from == 'z' && to == 'E' -> true
+                to in 'a'..'z' -> to - from <= 1
+                else -> false
+            }
+        }
+        val pathFinder = PathFinder(map, map.findFirst('S'), 'E', ascendingRules)
+        return pathFinder.getShortestPath()
+//            .also { pathFinder.drawPathTo(it) }
+            .distance
+        //490
     }
 
     override fun part2(): Any? {
-        TODO("Not yet implemented")
+        val descendingRules = PathFinder.TraverseRules { from, to ->
+            when {
+                from == 'E' -> 'z' - to <= 1
+                to in 'a'..'z' -> from - to <= 1
+                else -> false
+            }
+        }
+        val pathFinder = PathFinder(map, map.findFirst('E'), 'a', descendingRules)
+        return pathFinder.getShortestPath()
+//            .also { pathFinder.drawPathTo(it) }
+            .distance
+//        488
     }
 
 }

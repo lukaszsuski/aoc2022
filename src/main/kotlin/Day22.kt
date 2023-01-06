@@ -230,7 +230,7 @@ class Day22(input: List<String>) : Day(input) {
     override fun part1(): Any? {
         val strangeBoard = StrangeBoard(map, StrangeBoard.SimpleWrap::class)
 
-        val player = Character(strangeBoard, map.find('.'), Direction2.RIGHT)
+        val player = Character(strangeBoard, map.findFirst('.'), Direction2.RIGHT)
 
         moves.forEach { player.move(it) }
         return player.getPassword() //117102
@@ -238,7 +238,7 @@ class Day22(input: List<String>) : Day(input) {
 
     override fun part2(): Any? {
         val strangeBoard = StrangeBoard(map, StrangeBoard.CubicWrap::class)
-        val player = Character(strangeBoard, map.find('.'), Direction2.RIGHT)
+        val player = Character(strangeBoard, map.findFirst('.'), Direction2.RIGHT)
         moves.forEach { player.move(it) }
         return player.getPassword() //135297
     }

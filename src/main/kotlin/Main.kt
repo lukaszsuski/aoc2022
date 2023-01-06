@@ -7,7 +7,7 @@ fun main(args: Array<String>) {
     val xMas = LocalDate.of(2022, 12, 25)
     val solveTillDay = if (today.isBefore(xMas)) today.dayOfMonth else xMas.dayOfMonth
 
-    (1..solveTillDay).forEach {
+    (12..12).forEach {
         println("Day $it:")
         try {
             Day.nr(it)?.let { day ->
@@ -16,6 +16,7 @@ fun main(args: Array<String>) {
             }
         } catch (e: Throwable) {
             println("Failed: ${e}")
+            e.printStackTrace()
         }
         println("***************")
     }
